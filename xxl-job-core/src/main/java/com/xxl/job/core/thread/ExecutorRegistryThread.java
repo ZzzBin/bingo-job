@@ -17,16 +17,18 @@ public class ExecutorRegistryThread {
     private static Logger logger = LoggerFactory.getLogger(ExecutorRegistryThread.class);
 
     private static ExecutorRegistryThread instance = new ExecutorRegistryThread();
-    public static ExecutorRegistryThread getInstance(){
+
+    public static ExecutorRegistryThread getInstance() {
         return instance;
     }
 
     private Thread registryThread;
     private volatile boolean toStop = false;
-    public void start(final String appname, final String address){
+
+    public void start(final String appname, final String address) {
 
         // valid
-        if (appname==null || appname.trim().length()==0) {
+        if (appname == null || appname.trim().length() == 0) {
             logger.warn(">>>>>>>>>>> xxl-job, executor registry config fail, appname is null.");
             return;
         }
@@ -43,10 +45,10 @@ public class ExecutorRegistryThread {
                 while (!toStop) {
                     try {
                         RegistryParam registryParam = new RegistryParam(RegistryConfig.RegistType.EXECUTOR.name(), appname, address);
-                        for (AdminBiz adminBiz: XxlJobExecutor.getAdminBizList()) {
+                        for (AdminBiz adminBiz : XxlJobExecutor.getAdminBizList()) {
                             try {
                                 ReturnT<String> registryResult = adminBiz.registry(registryParam);
-                                if (registryResult!=null && ReturnT.SUCCESS_CODE == registryResult.getCode()) {
+                                if (registryResult != null && ReturnT.SUCCESS_CODE == registryResult.getCode()) {
                                     registryResult = ReturnT.SUCCESS;
                                     logger.debug(">>>>>>>>>>> xxl-job registry success, registryParam:{}, registryResult:{}", new Object[]{registryParam, registryResult});
                                     break;
@@ -79,10 +81,10 @@ public class ExecutorRegistryThread {
                 // registry remove
                 try {
                     RegistryParam registryParam = new RegistryParam(RegistryConfig.RegistType.EXECUTOR.name(), appname, address);
-                    for (AdminBiz adminBiz: XxlJobExecutor.getAdminBizList()) {
+                    for (AdminBiz adminBiz : XxlJobExecutor.getAdminBizList()) {
                         try {
                             ReturnT<String> registryResult = adminBiz.registryRemove(registryParam);
-                            if (registryResult!=null && ReturnT.SUCCESS_CODE == registryResult.getCode()) {
+                            if (registryResult != null && ReturnT.SUCCESS_CODE == registryResult.getCode()) {
                                 registryResult = ReturnT.SUCCESS;
                                 logger.info(">>>>>>>>>>> xxl-job registry-remove success, registryParam:{}, registryResult:{}", new Object[]{registryParam, registryResult});
                                 break;
@@ -106,9 +108,40 @@ public class ExecutorRegistryThread {
 
             }
         });
+        registryThread = new Thread(() -> {
+            ping(appname, address);
+        });
         registryThread.setDaemon(true);
         registryThread.setName("xxl-job, executor ExecutorRegistryThread");
         registryThread.start();
+    }
+
+    /**
+     * ping admin
+     */
+    private void ping(final String appname, final String address) {
+        while (!toStop) {
+            boolean interrupted = Thread.currentThread().isInterrupted();
+            if (interrupted) {
+                logger.warn("refresh has been interrupted");
+                break;
+            }
+            try {
+                // 2秒执行一次
+                TimeUnit.SECONDS.sleep(2);
+                for (AdminBiz adminBiz : XxlJobExecutor.getAdminBizList()) {
+                    ReturnT<String> pingResult = adminBiz.ping(new RegistryParam(RegistryConfig.RegistType.EXECUTOR.name(), appname, address));
+                    if (ReturnT.FAIL_CODE == pingResult.getCode()) {
+                        logger.warn(pingResult.getMsg());
+                    }
+                }
+            } catch (InterruptedException e) {
+                logger.warn("refresh has been interrupted");
+                toStop = true;
+            } catch (Exception e) {
+                logger.error("refresh exception", e);
+            }
+        }
     }
 
     public void toStop() {

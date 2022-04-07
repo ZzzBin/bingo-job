@@ -63,6 +63,9 @@ public class JobApiController {
         } else if ("registryRemove".equals(uri)) {
             RegistryParam registryParam = GsonTool.fromJson(data, RegistryParam.class);
             return adminBiz.registryRemove(registryParam);
+        } else if ("ping".equals(uri)) {
+            RegistryParam registryParam = GsonTool.fromJson(data, RegistryParam.class);
+            return adminBiz.ping(registryParam);
         } else {
             return new ReturnT<String>(ReturnT.FAIL_CODE, "invalid request, uri-mapping("+ uri +") not found.");
         }

@@ -41,6 +41,8 @@ public interface AdminBiz {
      */
     public ReturnT<String> registryRemove(RegistryParam registryParam);
 
+    ReturnT<String> ping(RegistryParam registryParam);
+
 
     // ---------------------- biz (custome) ----------------------
     // group、job ... manage

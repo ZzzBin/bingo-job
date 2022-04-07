@@ -32,4 +32,11 @@ public class AdminBizImpl implements AdminBiz {
         return JobRegistryHelper.getInstance().registryRemove(registryParam);
     }
 
+    /**
+     * executor ping admin
+     */
+    @Override
+    public ReturnT<String> ping(RegistryParam registryParam) {
+        return JobRegistryHelper.getInstance().ping(registryParam);
+    }
 }

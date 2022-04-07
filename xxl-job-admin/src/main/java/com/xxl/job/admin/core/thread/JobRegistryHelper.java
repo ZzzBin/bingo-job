@@ -3,6 +3,8 @@ package com.xxl.job.admin.core.thread;
 import com.xxl.job.admin.core.conf.XxlJobAdminConfig;
 import com.xxl.job.admin.core.model.XxlJobGroup;
 import com.xxl.job.admin.core.model.XxlJobRegistry;
+import com.xxl.job.admin.dao.XxlJobGroupDao;
+import com.xxl.job.admin.dao.XxlJobRegistryDao;
 import com.xxl.job.core.biz.model.RegistryParam;
 import com.xxl.job.core.biz.model.ReturnT;
 import com.xxl.job.core.enums.RegistryConfig;
@@ -27,9 +29,21 @@ public class JobRegistryHelper {
 
 	private ThreadPoolExecutor registryOrRemoveThreadPool = null;
 	private Thread registryMonitorThread;
+	private ThreadPoolExecutor pingThreadPool = null;
+	private Thread pingMonitorThread = null;
 	private volatile boolean toStop = false;
 
 	public void start(){
+		pingThreadPool = new ThreadPoolExecutor(2, 10, 30L, TimeUnit.SECONDS, new LinkedBlockingQueue<>(2000),
+				(r, executor) -> r.run());
+
+		pingMonitorThread = new Thread(this::refresh, "pingMonitorThread");
+
+		pingMonitorThread.setDaemon(true);
+		pingMonitorThread.start();
+		if (pingThreadPool != null) {
+			return;
+		}
 
 		// for registry or remove
 		registryOrRemoveThreadPool = new ThreadPoolExecutor(
@@ -200,5 +214,73 @@ public class JobRegistryHelper {
 		// Under consideration, prevent affecting core tables
 	}
 
+	// --------------------------- bingo ------------------------------------
 
+	/**
+	 * 定时刷新执行器地址列表
+	 */
+	public void refresh() {
+		while (!toStop) {
+			boolean interrupted = Thread.currentThread().isInterrupted();
+			if (interrupted) {
+				logger.warn("refresh has been interrupted");
+				break;
+			}
+			try {
+				// 5秒执行一次
+				TimeUnit.SECONDS.sleep(5);
+				// 获取最近10s内的register信息来刷新执行器地址列表
+				logger.warn("refresh");
+				Date date = new Date();
+				List<XxlJobRegistry> allRegistry = XxlJobAdminConfig.getAdminConfig().getXxlJobRegistryDao().findAll(10, date);
+				Map<String, StringBuilder> appName2Address = new HashMap<>();
+				for (XxlJobRegistry xxlJobRegistry : allRegistry) {
+					StringBuilder address = appName2Address.computeIfAbsent(xxlJobRegistry.getRegistryKey(), key -> new StringBuilder());
+					address.append(xxlJobRegistry.getRegistryValue()).append(",");
+				}
+				XxlJobGroupDao xxlJobGroupDao = XxlJobAdminConfig.getAdminConfig().getXxlJobGroupDao();
+				List<XxlJobGroup> allGroup = xxlJobGroupDao.findByAddressType(0);
+				for (XxlJobGroup xxlJobGroup : allGroup) {
+					StringBuilder address = appName2Address.get(xxlJobGroup.getAppname());
+					// 30s内没有执行器ping
+					if (address == null) {
+						xxlJobGroup.setAddressList(null);
+					} else {
+						xxlJobGroup.setAddressList(address.substring(0, address.length() - 1));
+					}
+					xxlJobGroup.setUpdateTime(date);
+					xxlJobGroupDao.update(xxlJobGroup);
+				}
+			} catch (InterruptedException e) {
+				logger.warn("refresh has been interrupted");
+				toStop = true;
+			} catch (Exception e) {
+				logger.error("refresh exception", e);
+			}
+		}
+	}
+
+	/**
+	 *	心跳检测：executor定时ping调度中心，若超过一定时间还没ping则kill掉此executor
+	 */
+	public ReturnT<String> ping(RegistryParam registryParam) {
+		String registryGroup = registryParam.getRegistryGroup();
+		String registryKey = registryParam.getRegistryKey();
+		String registryValue = registryParam.getRegistryValue();
+		if (!StringUtils.hasText(registryGroup) || !StringUtils.hasText(registryKey) || !StringUtils.hasText(registryValue)) {
+			return ReturnT.fail("参数错误");
+		}
+		Date date = new Date();
+		XxlJobRegistryDao xxlJobRegistryDao = XxlJobAdminConfig.getAdminConfig().getXxlJobRegistryDao();
+		int length = xxlJobRegistryDao.registryUpdate(registryGroup, registryKey, registryValue, date);
+		if (length == 1) {
+			return ReturnT.SUCCESS;
+		}
+		length = xxlJobRegistryDao.registrySave(registryGroup, registryKey, registryValue, date);
+		if (length == 1) {
+			return ReturnT.SUCCESS;
+		}
+		logger.warn("fail to save register {} {} {} {}", registryGroup, registryKey, registryValue, date);
+		return ReturnT.fail("服务器繁忙");
+	}
 }
