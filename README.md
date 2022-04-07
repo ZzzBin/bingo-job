@@ -1,3 +1,5 @@
+改造xxl-job核心逻辑，用来学习和领会xxl-job精髓
+
 <p align="center" >
     <img src="https://www.xuxueli.com/doc/static/xxl-job/images/xxl-logo.jpg" width="150">
     <h3 align="center">XXL-JOB</h3>
