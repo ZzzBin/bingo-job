@@ -196,9 +196,9 @@ public class EmbedServer {
                 } else if ("/idleBeat".equals(uri)) {
                     IdleBeatParam idleBeatParam = GsonTool.fromJson(requestData, IdleBeatParam.class);
                     return executorBiz.idleBeat(idleBeatParam);
-                } else if ("/run".equals(uri)) {
+                } else if ("/run2".equals(uri)) {
                     TriggerParam triggerParam = GsonTool.fromJson(requestData, TriggerParam.class);
-                    return executorBiz.run(triggerParam);
+                    return executorBiz.run2(triggerParam);
                 } else if ("/kill".equals(uri)) {
                     KillParam killParam = GsonTool.fromJson(requestData, KillParam.class);
                     return executorBiz.kill(killParam);

@@ -58,6 +58,7 @@ public class ExecutorBizImpl implements ExecutorBiz {
             IJobHandler newJobHandler = XxlJobExecutor.loadJobHandler(triggerParam.getExecutorHandler());
 
             // valid old jobThread
+            // job换成另一个handler了
             if (jobThread!=null && jobHandler != newJobHandler) {
                 // change handler, need kill old thread
                 removeOldReason = "change jobhandler or glue type, and terminate the old job thread.";
@@ -146,6 +147,38 @@ public class ExecutorBizImpl implements ExecutorBiz {
         // push data to queue
         ReturnT<String> pushResult = jobThread.pushTriggerQueue(triggerParam);
         return pushResult;
+    }
+
+    /**
+     * 调度中心调用
+     */
+    @Override
+    public ReturnT<String> run2(TriggerParam triggerParam) {
+        JobThread jobThread = XxlJobExecutor.loadJobThread(triggerParam.getJobId());
+        // 代表上次调度没执行完
+        if (jobThread != null){
+            ExecutorBlockStrategyEnum blockStrategyEnum = ExecutorBlockStrategyEnum.match(triggerParam.getExecutorBlockStrategy(), ExecutorBlockStrategyEnum.SERIAL_EXECUTION);
+            // 单机串行
+            if (blockStrategyEnum == ExecutorBlockStrategyEnum.SERIAL_EXECUTION){
+                jobThread.pushTriggerQueue(triggerParam);
+                return ReturnT.SUCCESS;
+            } else if (blockStrategyEnum == ExecutorBlockStrategyEnum.DISCARD_LATER){
+                // 丢弃此次调度
+                logger.warn("DISCARD_LATER {} {}",triggerParam.getExecutorHandler(),triggerParam.getGlueUpdatetime());
+                return ReturnT.SUCCESS;
+            } else if(blockStrategyEnum == ExecutorBlockStrategyEnum.COVER_EARLY){
+                // 覆盖之前调度
+                IJobHandler iJobHandler = XxlJobExecutor.loadJobHandler(triggerParam.getExecutorHandler());
+                XxlJobExecutor.registJobThread(triggerParam.getJobId(),iJobHandler,"COVER_EARLY");
+                return ReturnT.SUCCESS;
+            }
+            logger.error("blockStrategyEnum not match {}",blockStrategyEnum.name());
+            return ReturnT.FAIL;
+        }
+        // 新的调度任务
+        IJobHandler iJobHandler = XxlJobExecutor.loadJobHandler(triggerParam.getExecutorHandler());
+        XxlJobExecutor.registJobThread(triggerParam.getJobId(),iJobHandler,"");
+        return ReturnT.SUCCESS;
     }
 
     @Override

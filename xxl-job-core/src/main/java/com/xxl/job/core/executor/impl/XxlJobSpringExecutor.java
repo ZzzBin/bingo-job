@@ -35,7 +35,8 @@ public class XxlJobSpringExecutor extends XxlJobExecutor implements ApplicationC
         /*initJobHandlerRepository(applicationContext);*/
 
         // init JobHandler Repository (for method)
-        initJobHandlerMethodRepository(applicationContext);
+//        initJobHandlerMethodRepository(applicationContext);
+        initJobHandlerMethodRepository2(applicationContext);
 
         // refresh GlueFactory
         GlueFactory.refreshInstance(1);
@@ -45,6 +46,24 @@ public class XxlJobSpringExecutor extends XxlJobExecutor implements ApplicationC
             super.start();
         } catch (Exception e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * 查询xxl-job注解
+     */
+    private void initJobHandlerMethodRepository2(ApplicationContext applicationContext) {
+        for (String beanName : applicationContext.getBeanDefinitionNames()) {
+            Object bean = applicationContext.getBean(beanName);
+            for (Method method : bean.getClass().getDeclaredMethods()) {
+                XxlJob xxlJobAnnotation = method.getAnnotation(XxlJob.class);
+                if (xxlJobAnnotation != null) {
+                    MethodJobHandler methodJobHandler = new MethodJobHandler(bean, method, null, null);
+                    String value = xxlJobAnnotation.value();
+                    logger.info("注册handler {} {}", value,method.getName());
+                    registJobHandler(value,methodJobHandler);
+                }
+            }
         }
     }
 
@@ -98,7 +117,7 @@ public class XxlJobSpringExecutor extends XxlJobExecutor implements ApplicationC
             } catch (Throwable ex) {
                 logger.error("xxl-job method-jobhandler resolve error for bean[" + beanDefinitionName + "].", ex);
             }
-            if (annotatedMethods==null || annotatedMethods.isEmpty()) {
+            if (annotatedMethods == null || annotatedMethods.isEmpty()) {
                 continue;
             }
 
