@@ -85,7 +85,7 @@ public class JobScheduleHelper {
             // 固定速度
             case FIX_RATE:
                 long triggerLastTime = job.getTriggerLastTime();
-                Integer fixTime = Integer.valueOf(job.getScheduleConf());
+                Integer fixTime = Integer.valueOf(job.getScheduleConf()) * 1000;
                 // 已经超过了fixTime，立即触发
                 long now = System.currentTimeMillis();
                 if ((now - triggerLastTime) >= fixTime) {
