@@ -55,7 +55,7 @@ public class XxlJobSpringExecutor extends XxlJobExecutor implements ApplicationC
     private void initJobHandlerMethodRepository2(ApplicationContext applicationContext) {
         for (String beanName : applicationContext.getBeanDefinitionNames()) {
             Object bean = applicationContext.getBean(beanName);
-            for (Method method : bean.getClass().getDeclaredMethods()) {
+            for (Method method : bean.getClass().getMethods()) {
                 XxlJob xxlJobAnnotation = method.getAnnotation(XxlJob.class);
                 if (xxlJobAnnotation != null) {
                     MethodJobHandler methodJobHandler = new MethodJobHandler(bean, method, null, null);
