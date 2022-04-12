@@ -90,8 +90,8 @@ public class JobThread extends Thread{
         return running || triggerQueue.size()>0;
     }
 
-    @Override
-	public void run() {
+//    @Override
+	public void run1() {
 
     	// init
     	try {
@@ -245,5 +245,53 @@ public class JobThread extends Thread{
 		}
 
 		logger.info(">>>>>>>>>>> xxl-job JobThread stoped, hashCode:{}", Thread.currentThread());
+	}
+
+	@Override
+	public void run() {
+		while (!toStop) {
+		    boolean interrupted = Thread.currentThread().isInterrupted();
+		    if (interrupted) {
+		        logger.warn("JobThread run has been interrupted");
+		        break;
+		    }
+		    try {
+		        // 3秒内尝试获取参数
+				TriggerParam triggerParam = triggerQueue.poll(3, TimeUnit.SECONDS);
+				if (triggerParam == null){
+					idleTimes++;
+				} else {
+					idleTimes = 0;
+					XxlJobContext xxlJobContext = new XxlJobContext(triggerParam.getJobId(), triggerParam.getExecutorParams(), "/bingo/logs/", triggerParam.getBroadcastIndex(), triggerParam.getBroadcastTotal());
+                    XxlJobContext.setXxlJobContext(xxlJobContext);
+					try {
+						if (triggerParam.getExecutorTimeout() <= 0) {
+							handler.execute();
+						} else {
+							try {
+								FutureTask<Boolean> futureTask = new FutureTask<>(()->{
+                                    XxlJobContext.setXxlJobContext(xxlJobContext);
+									handler.execute();
+									return true;
+								});
+								new Thread(futureTask).start();
+								futureTask.get(triggerParam.getExecutorTimeout(),TimeUnit.SECONDS);
+							}catch (TimeoutException timeoutException){
+                                XxlJobHelper.handleTimeout(timeoutException.getMessage());
+							}
+						}
+					} catch (Exception e){
+                        XxlJobHelper.handleFail(e.getMessage());
+					} finally {
+					    TriggerCallbackThread.pushCallBack(new HandleCallbackParam(triggerParam.getLogId(),System.currentTimeMillis(),XxlJobContext.getXxlJobContext().getHandleCode(),"bingo：" + xxlJobContext.getHandleMsg()));
+                    }
+				}
+			} catch (InterruptedException e) {
+		        logger.warn("JobThread run has been interrupted");
+		        toStop = true;
+		    } catch (Exception e) {
+		        logger.error("JobThread run exception", e);
+		    }
+		}
 	}
 }
