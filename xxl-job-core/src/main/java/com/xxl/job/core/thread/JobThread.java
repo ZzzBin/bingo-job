@@ -104,7 +104,6 @@ public class JobThread extends Thread{
 		while(!toStop){
 			running = false;
 			idleTimes++;
-
             TriggerParam triggerParam = null;
             try {
 				// to check toStop signal, we need cycle, so wo cannot use queue.take(), instand of poll(timeout)
@@ -255,6 +254,9 @@ public class JobThread extends Thread{
 		        logger.warn("JobThread run has been interrupted");
 		        break;
 		    }
+		    if (idleTimes == 30){
+		    	XxlJobExecutor.removeJobThread(jobId,"times out of limit");
+			}
 		    try {
 		        // 3秒内尝试获取参数
 				TriggerParam triggerParam = triggerQueue.poll(3, TimeUnit.SECONDS);
