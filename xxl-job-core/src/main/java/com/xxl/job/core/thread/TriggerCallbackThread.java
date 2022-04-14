@@ -5,7 +5,6 @@ import com.xxl.job.core.biz.model.HandleCallbackParam;
 import com.xxl.job.core.biz.model.ReturnT;
 import com.xxl.job.core.context.XxlJobContext;
 import com.xxl.job.core.context.XxlJobHelper;
-import com.xxl.job.core.enums.RegistryConfig;
 import com.xxl.job.core.executor.XxlJobExecutor;
 import com.xxl.job.core.log.XxlJobFileAppender;
 import com.xxl.job.core.util.FileUtil;
@@ -18,7 +17,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Created by xuxueli on 16/7/22.
@@ -47,90 +45,25 @@ public class TriggerCallbackThread {
     private Thread triggerRetryCallbackThread;
     private volatile boolean toStop = false;
     public void start() {
-
-        // valid
-        if (XxlJobExecutor.getAdminBizList() == null) {
-            logger.warn(">>>>>>>>>>> xxl-job, executor callback config fail, adminAddresses is null.");
-            return;
-        }
-
-        // callback
-        triggerCallbackThread = new Thread(new Runnable() {
-
-            @Override
-            public void run() {
-
-                // normal callback
-                while(!toStop){
-                    try {
-                        HandleCallbackParam callback = getInstance().callBackQueue.take();
-                        if (callback != null) {
-
-                            // callback list param
-                            List<HandleCallbackParam> callbackParamList = new ArrayList<HandleCallbackParam>();
-                            int drainToNum = getInstance().callBackQueue.drainTo(callbackParamList);
-                            callbackParamList.add(callback);
-
-                            // callback, will retry if error
-                            if (callbackParamList!=null && callbackParamList.size()>0) {
-                                doCallback(callbackParamList);
-                            }
-                        }
-                    } catch (Exception e) {
-                        if (!toStop) {
-                            logger.error(e.getMessage(), e);
-                        }
-                    }
-                }
-
-                // last callback
+        triggerCallbackThread = new Thread(()->{
+            while (!toStop){
                 try {
-                    List<HandleCallbackParam> callbackParamList = new ArrayList<HandleCallbackParam>();
-                    int drainToNum = getInstance().callBackQueue.drainTo(callbackParamList);
-                    if (callbackParamList!=null && callbackParamList.size()>0) {
-                        doCallback(callbackParamList);
-                    }
-                } catch (Exception e) {
-                    if (!toStop) {
-                        logger.error(e.getMessage(), e);
-                    }
+                    HandleCallbackParam handleCallbackParam = callBackQueue.take();
+                    List<HandleCallbackParam> callbackParams = new ArrayList<>();
+                    callBackQueue.drainTo(callbackParams);
+                    callbackParams.add(handleCallbackParam);
+                    doCallback(callbackParams);
+                } catch (InterruptedException e) {
+                    logger.warn("TriggerCallbackThread has been interrupted");
+                    break;
                 }
-                logger.info(">>>>>>>>>>> xxl-job, executor callback thread destory.");
-
+            }
+            List<HandleCallbackParam> callbackParams = new ArrayList<>();
+            callBackQueue.drainTo(callbackParams);
+            if (!callbackParams.isEmpty()){
+                doCallback(callbackParams);
             }
         });
-        triggerCallbackThread.setDaemon(true);
-        triggerCallbackThread.setName("xxl-job, executor TriggerCallbackThread");
-        triggerCallbackThread.start();
-
-
-        // retry
-        triggerRetryCallbackThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                while(!toStop){
-                    try {
-                        retryFailCallbackFile();
-                    } catch (Exception e) {
-                        if (!toStop) {
-                            logger.error(e.getMessage(), e);
-                        }
-
-                    }
-                    try {
-                        TimeUnit.SECONDS.sleep(RegistryConfig.BEAT_TIMEOUT);
-                    } catch (InterruptedException e) {
-                        if (!toStop) {
-                            logger.error(e.getMessage(), e);
-                        }
-                    }
-                }
-                logger.info(">>>>>>>>>>> xxl-job, executor retry callback thread destory.");
-            }
-        });
-        triggerRetryCallbackThread.setDaemon(true);
-        triggerRetryCallbackThread.start();
-
     }
     public void toStop(){
         toStop = true;
