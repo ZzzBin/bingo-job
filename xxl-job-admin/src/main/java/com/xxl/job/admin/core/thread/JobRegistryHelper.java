@@ -230,7 +230,7 @@ public class JobRegistryHelper {
 				// 5秒执行一次
 				TimeUnit.SECONDS.sleep(5);
 				// 获取最近10s内的register信息来刷新执行器地址列表
-				logger.warn("refresh");
+//				logger.warn("refresh");
 				Date date = new Date();
 				List<XxlJobRegistry> allRegistry = XxlJobAdminConfig.getAdminConfig().getXxlJobRegistryDao().findAll(10, date);
 				Map<String, StringBuilder> appName2Address = new HashMap<>();

@@ -248,7 +248,7 @@ public class JobThread extends Thread{
 
 	@Override
 	public void run() {
-		while (!toStop) {
+ 		while (!toStop) {
 		    boolean interrupted = Thread.currentThread().isInterrupted();
 		    if (interrupted) {
 		        logger.warn("JobThread run has been interrupted");

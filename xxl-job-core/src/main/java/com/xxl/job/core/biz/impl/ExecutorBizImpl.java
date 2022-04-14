@@ -169,7 +169,8 @@ public class ExecutorBizImpl implements ExecutorBiz {
             } else if(blockStrategyEnum == ExecutorBlockStrategyEnum.COVER_EARLY){
                 // 覆盖之前调度
                 IJobHandler iJobHandler = XxlJobExecutor.loadJobHandler(triggerParam.getExecutorHandler());
-                XxlJobExecutor.registJobThread(triggerParam.getJobId(),iJobHandler,"COVER_EARLY");
+                jobThread = XxlJobExecutor.registJobThread(triggerParam.getJobId(), iJobHandler, "COVER_EARLY");
+                jobThread.pushTriggerQueue(triggerParam);
                 return ReturnT.SUCCESS;
             }
             logger.error("blockStrategyEnum not match {}",blockStrategyEnum.name());
@@ -177,7 +178,8 @@ public class ExecutorBizImpl implements ExecutorBiz {
         }
         // 新的调度任务
         IJobHandler iJobHandler = XxlJobExecutor.loadJobHandler(triggerParam.getExecutorHandler());
-        XxlJobExecutor.registJobThread(triggerParam.getJobId(),iJobHandler,"");
+        jobThread = XxlJobExecutor.registJobThread(triggerParam.getJobId(), iJobHandler, "");
+        jobThread.pushTriggerQueue(triggerParam);
         return ReturnT.SUCCESS;
     }
 

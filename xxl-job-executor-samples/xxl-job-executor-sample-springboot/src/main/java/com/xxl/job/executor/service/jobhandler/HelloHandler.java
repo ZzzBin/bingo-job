@@ -22,4 +22,14 @@ public class HelloHandler {
     public void helloJobHandler() {
         logger.info("hello " + XxlJobHelper.getJobParam());
     }
+
+    @XxlJob("childHandler")
+    public void childHandler() {
+        logger.info("childHandler hello");
+    }
+
+    @XxlJob("child2Handler")
+    public void child2Handler() {
+        logger.info("child2222Handler hello");
+    }
 }
